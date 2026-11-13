@@ -1,0 +1,30 @@
+name: sync-waste-map
+
+on:
+  schedule:
+    - cron: "7 */3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-waste-map
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=dev
+      - name: Sync from Google My Maps to Neon
+        run: node sync.js
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MYMAPS_MID: 1WyMxRL6t_FJZXkIRAyQ_UGg-xPfYz6w
