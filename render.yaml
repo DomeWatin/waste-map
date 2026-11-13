@@ -1,0 +1,20 @@
+# Render Blueprint — เว็บอย่างเดียว (การดึงข้อมูลทุก 3 ชม. อยู่ที่ .github/workflows/sync.yml)
+# ค่าลับ (DATABASE_URL, SYNC_TOKEN) ตั้งใน Dashboard ของ Render ไม่ใส่ในไฟล์นี้
+services:
+  - type: web
+    name: waste-map-web
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SYNC_TOKEN
+        sync: false
+      - key: LIFF_ID          # ใส่เมื่อใช้งานผ่าน LINE LIFF (เว้นว่างได้ ถ้าใช้เป็นเว็บธรรมดา)
+        sync: false
+      - key: MYMAPS_MID
+        value: 1WyMxRL6t_FJZXkIRAyQ_UGg-xPfYz6w

@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ถังขยะใกล้ฉัน — เทศบาลนครสุราษฎร์ธานี</title>
+  <meta name="description" content="แผนที่จุดบริการเก็บถังขยะทั่วไปในเขตเทศบาลนครสุราษฎร์ธานี อัปเดตทุก 3 ชั่วโมง">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --eco-900: #0f3d2e;
+      --eco-700: #1b6b4a;
+      --eco-500: #2f9e6d;
+      --eco-100: #e3f4eb;
+      --eco-50:  #f3faf6;
+      --sun-500: #f4b942;
+      --bs-primary: var(--eco-700);
+      --bs-primary-rgb: 27, 107, 74;
+      --bs-body-font-family: "Noto Sans Thai", system-ui, sans-serif;
+    }
+    html, body { height: 100%; }
+    /* กดพื้นที่ด้วยเมาส์แล้ว Chrome วาดกรอบดำรอบ SVG — ซ่อนเฉพาะกรณีไม่ได้ใช้คีย์บอร์ด */
+    .leaflet-container path.leaflet-interactive:focus:not(:focus-visible) { outline: none; }
+    body { background: var(--eco-50); display: flex; flex-direction: column; }
+
+    .topbar { background: linear-gradient(135deg, var(--eco-900), var(--eco-700)); color: #fff; }
+    .topbar .badge-update { background: rgba(255,255,255,.14); font-weight: 500; }
+
+    .btn-primary { --bs-btn-bg: var(--eco-700); --bs-btn-border-color: var(--eco-700);
+      --bs-btn-hover-bg: var(--eco-900); --bs-btn-hover-border-color: var(--eco-900);
+      --bs-btn-active-bg: var(--eco-900); --bs-btn-active-border-color: var(--eco-900); }
+    .form-control:focus, .form-select:focus { border-color: var(--eco-500); box-shadow: 0 0 0 .2rem rgba(47,158,109,.2); }
+
+    main { flex: 1; min-height: 0; display: flex; }
+    #side { width: 340px; max-width: 100%; background: #fff; border-right: 1px solid #dfe9e3;
+      display: flex; flex-direction: column; min-height: 0; }
+    #list { overflow-y: auto; flex: 1; }
+    #map { flex: 1; min-height: 0; }
+
+    .stat { background: var(--eco-100); border-radius: .75rem; padding: .6rem .9rem; }
+    .stat .n { font-size: 1.5rem; font-weight: 700; color: var(--eco-900); line-height: 1.1; }
+
+    .layer-chip { cursor: pointer; border: 1px solid #cfe3d8; background: #fff; color: var(--eco-900);
+      border-radius: 999px; padding: .2rem .7rem; font-size: .85rem; user-select: none; }
+    .layer-chip.active { background: var(--eco-700); border-color: var(--eco-700); color: #fff; }
+    .layer-chip .dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: .35rem; }
+
+    .item { cursor: pointer; border-bottom: 1px solid #eef3f0; padding: .65rem 1rem; }
+    .item:hover, .item.focus { background: var(--eco-100); }
+    .item .t { font-weight: 500; color: var(--eco-900); }
+    .item .s { font-size: .8rem; color: #667; }
+
+    .leaflet-popup-content-wrapper { border-radius: .75rem; }
+    .pop-title { font-weight: 700; color: var(--eco-900); }
+    .pop-photos { display: flex; gap: .35rem; overflow-x: auto; margin-top: .4rem; }
+    .pop-photos img { height: 90px; width: auto; border-radius: .5rem; display: block; }
+    .pop-layer { font-size: .75rem; color: #fff; border-radius: 999px; padding: .05rem .5rem; display: inline-block; margin: .2rem 0; }
+
+    .hero { background: #fff; border-bottom: 1px solid #dfe9e3; }
+    .hero-btn { width: 100%; display: flex; align-items: center; gap: .9rem; text-align: left; border: 0; cursor: pointer;
+      background: var(--sun-500); color: #3b2a00; border-radius: 1rem; padding: .85rem 1rem;
+      box-shadow: 0 6px 16px rgba(244,185,66,.45); font-family: inherit; }
+    .hero-btn:hover { background: #f7c35c; }
+    .hero-btn:disabled { opacity: .85; cursor: progress; }
+    .hero-btn:focus-visible { outline: 3px solid var(--eco-700); outline-offset: 2px; }
+    .hero-ic { flex: none; width: 3rem; height: 3rem; border-radius: 50%; background: var(--eco-900); color: #fff;
+      display: grid; place-items: center; font-size: 1.5rem; animation: heroPulse 2s ease-out infinite; }
+    .hero-tx b { display: block; font-size: 1.2rem; line-height: 1.25; }
+    .hero-tx small { display: block; font-size: .9rem; opacity: .85; }
+    .hero-note { color: #5b6b63; margin-top: .5rem; text-align: center; }
+    #heroMsg { color: #b02a37; margin-top: .4rem; text-align: center; font-weight: 500; }
+    @keyframes heroPulse { 0% { box-shadow: 0 0 0 0 rgba(15,61,46,.45); } 70%,100% { box-shadow: 0 0 0 14px rgba(15,61,46,0); } }
+    @media (prefers-reduced-motion: reduce) { .hero-ic { animation: none; } }
+    .nav-btn { white-space: nowrap; font-size: .8rem; padding: .2rem .55rem; }
+    .dist { font-weight: 600; color: var(--eco-700); }
+    #locMsg.err { color: #b02a37; }
+    #locMsg.warn { color: #8a5a00; }
+    .me-dot { background: #0d6efd; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 0 2px rgba(13,110,253,.35); }
+    .zone-row { border-top: 1px solid #eef3f0; padding-top: .6rem; margin-top: .6rem; }
+    .zone-swatch { display: inline-block; width: .8rem; height: .8rem; border-radius: .2rem; margin-right: .3rem; vertical-align: -1px; }
+    .form-check-input:checked { background-color: var(--eco-700); border-color: var(--eco-700); }
+    .topbar .badge-update.stale { background: var(--sun-500); color: #4a3500; }
+    .zone-count { font-size: .85rem; }
+
+    /* มือถือ: แผนที่อยู่บน รายการอยู่ล่าง */
+    @media (max-width: 767.98px) {
+      main { flex-direction: column-reverse; }
+      #side { width: 100%; height: 42%; border-right: 0; border-top: 1px solid #dfe9e3; overflow-y: auto; }
+      #list { overflow: visible; flex: none; } /* มือถือ: ตัวควบคุมสูงเกินครึ่งหน้าจอ จึงให้เลื่อนทั้งแถบ ไม่งั้นรายการจะมองไม่เห็น */
+      #map { height: 58%; flex: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="topbar py-2 px-3">
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <i class="bi bi-recycle fs-3" style="color: var(--sun-500)"></i>
+    <div class="me-auto">
+      <div class="fw-bold lh-sm">ถังขยะใกล้ฉัน</div>
+      <div class="small opacity-75">เทศบาลนครสุราษฎร์ธานี</div>
+    </div>
+    <span id="updated" class="badge badge-update rounded-pill py-2 px-3">
+      <i class="bi bi-arrow-repeat me-1"></i>กำลังโหลด…
+    </span>
+  </div>
+</header>
+
+<section id="hero" class="hero px-3 py-3" aria-label="แชร์ตำแหน่งปัจจุบัน">
+  <button id="heroBtn" type="button" class="hero-btn">
+    <span class="hero-ic"><i class="bi bi-geo-alt-fill"></i></span>
+    <span class="hero-tx"><b>แชร์ตำแหน่งปัจจุบัน</b><small>ดูถังขยะที่อยู่ใกล้คุณที่สุด</small></span>
+  </button>
+  <div class="hero-note small"><i class="bi bi-shield-check me-1"></i>ใช้คำนวณในเครื่องของคุณเท่านั้น ไม่ส่งตำแหน่งไปที่เซิร์ฟเวอร์</div>
+  <div id="heroMsg" class="small" role="alert" hidden></div>
+</section>
+
+<main>
+  <aside id="side">
+    <div class="p-3 border-bottom">
+      <div class="input-group mb-2">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input id="q" type="search" class="form-control" placeholder="ค้นหาชื่อจุด / ถนน / ชื่อชุมชน" aria-label="ค้นหา">
+      </div>
+      <div class="d-flex gap-2 align-items-center mb-2">
+        <button id="locBtn" type="button" class="btn btn-primary btn-sm flex-shrink-0"><i class="bi bi-geo-alt-fill me-1"></i>จุดใกล้ฉัน</button>
+        <select id="radius" class="form-select form-select-sm" aria-label="รัศมีค้นหา" disabled>
+          <option value="300">ในรัศมี 300 ม.</option>
+          <option value="500">ในรัศมี 500 ม.</option>
+          <option value="1000" selected>ในรัศมี 1 กม.</option>
+          <option value="2000">ในรัศมี 2 กม.</option>
+          <option value="5000">ในรัศมี 5 กม.</option>
+          <option value="0">ทั้งหมด (เรียงตามระยะ)</option>
+        </select>
+        <button id="locClear" type="button" class="btn btn-outline-secondary btn-sm" hidden title="ล้างตำแหน่ง" aria-label="ล้างตำแหน่ง"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div id="locMsg" class="small mb-2" role="status" hidden></div>
+      <div id="chips" class="d-flex flex-wrap gap-2 mb-2"></div>
+      <div id="zoneRow" class="zone-row mb-2" hidden>
+        <div class="form-check form-switch mb-1">
+          <input class="form-check-input" type="checkbox" role="switch" id="zoneToggle" checked>
+          <label class="form-check-label" for="zoneToggle">แสดงเขตชุมชน <span id="zoneTotal" class="text-muted small"></span></label>
+        </div>
+        <div id="zoneLegend" class="small d-flex flex-wrap gap-3"></div>
+      </div>
+      <div class="row g-2">
+        <div class="col-6"><div class="stat"><div class="n" id="nShown">–</div><div class="small text-muted">จุดที่แสดง</div></div></div>
+        <div class="col-6"><div class="stat"><div class="n" id="nAll">–</div><div class="small text-muted">จุดทั้งหมด</div></div></div>
+      </div>
+    </div>
+    <div id="list" role="list"></div>
+  </aside>
+  <div id="map" aria-label="แผนที่จุดบริการเก็บถังขยะ"></div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  // ชุดสีตามชั้นข้อมูล (layer) — วนใช้ตามลำดับที่พบ
+  const PALETTE = ['#1b6b4a', '#f4b942', '#2b7fb8', '#d9534f', '#8e5ea2', '#e07b39', '#3aa6a0'];
+
+  const map = L.map('map', { zoomControl: true }).setView([9.1388, 99.3217], 13);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  // สีของเขตพัฒนาชุมชน (จาง ๆ ให้จุดเด่นกว่า)
+  const ZONE_PALETTE = ['#2f9e6d', '#2b7fb8', '#e07b39', '#8e5ea2', '#3aa6a0', '#c0504d'];
+  map.createPane('zones');
+  map.getPane('zones').style.zIndex = 350; // ต่ำกว่าจุด (overlayPane = 400) เพื่อให้กดจุดได้เสมอ
+
+  const state = {
+    features: [], layers: new Map(), active: new Set(), query: '', markers: new Map(),
+    zones: [], districts: new Map(), zoneLayer: null, zoneStats: new Map(),
+    me: null, radius: 1000, meLayer: L.layerGroup().addTo(map),
+  };
+  const markerGroup = L.layerGroup().addTo(map);
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // คำอธิบายที่ได้จาก API เป็นข้อความล้วนอยู่แล้ว (เซิร์ฟเวอร์แยกรูปออกให้) — ไม่แปลงเป็น HTML
+  const plain = (t) => String(t ?? '').trim();
+  const shortLabel = (s, n = 26) => (s.length > n ? s.slice(0, n) + '…' : s);
+
+  // ระยะทางเส้นตรงบนผิวโลก (haversine) หน่วยเมตร — ไม่ใช่ระยะตามถนน
+  function distM(lat1, lng1, lat2, lng2) {
+    const t = Math.PI / 180, dLat = (lat2 - lat1) * t, dLng = (lng2 - lng1) * t;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * t) * Math.cos(lat2 * t) * Math.sin(dLng / 2) ** 2;
+    return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+  const fmtDist = (m) => (m < 1000 ? Math.round(m) + ' ม.' : (m / 1000).toFixed(m < 10000 ? 1 : 0) + ' กม.');
+  // ลิงก์เส้นทางของ Google Maps (ไม่ใส่ origin = ใช้ตำแหน่งปัจจุบันของเครื่องผู้ใช้)
+  const navUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  // เปิดลิงก์นำทางออกนอก LINE: ใน LIFF browser การพาหน้าเว็บไปเว็บอื่นทำให้ตำแหน่งใช้ไม่ได้ จึงเปิดด้วย browser ภายนอก
+  let liffReady = false;
+  function openNav(e, url) {
+    if (!liffReady) return; // เว็บธรรมดา: ปล่อยให้ลิงก์ทำงานตามปกติ
+    e.preventDefault();
+    try { window.liff.openWindow({ url, external: true }); } catch { window.open(url, '_blank', 'noopener'); }
+  }
+  function navLink(lat, lng, name) {
+    const a = document.createElement('a');
+    a.className = 'btn btn-sm btn-outline-success nav-btn';
+    a.href = navUrl(lat, lng); a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.setAttribute('aria-label', 'นำทางไปยัง ' + (name || 'จุดนี้'));
+    a.innerHTML = '<i class="bi bi-signpost-2-fill me-1"></i>นำทาง';
+    a.addEventListener('click', (e) => { e.stopPropagation(); openNav(e, a.href); });
+    return a;
+  }
+
+  function colorOf(layer) { return state.layers.get(layer)?.color ?? PALETTE[0]; }
+
+  function matches(f) {
+    const p = f.properties;
+    if (state.layers.size > 1 && !state.active.has(p.layer)) return false;
+    if (!state.query) return true;
+    const hay = (p.name + ' ' + p.layer + ' ' + plain(p.description) + ' ' + (p.zoneNames || []).join(' ')).toLowerCase();
+    return hay.includes(state.query);
+  }
+
+  // สร้างป๊อปอัปด้วย DOM (textContent) ไม่ต่อสตริง HTML เพื่อกัน XSS จากข้อมูลต้นทาง
+  function popupEl(p, onChange, ll) {
+    const box = document.createElement('div');
+    box.style.maxWidth = '260px';
+    const title = document.createElement('div');
+    title.className = 'pop-title';
+    title.textContent = p.name || 'ไม่ระบุชื่อ';
+    box.appendChild(title);
+    if (p.layer) {
+      const tag = document.createElement('span');
+      tag.className = 'pop-layer';
+      tag.style.background = colorOf(p.layer);
+      tag.textContent = shortLabel(p.layer, 40);
+      tag.title = p.layer;
+      box.appendChild(tag);
+    }
+    if (p.zoneNames && p.zoneNames.length) {
+      const z = document.createElement('div');
+      z.className = 'small mt-1';
+      z.textContent = 'ชุมชน: ' + p.zoneNames.join(', ');
+      box.appendChild(z);
+    }
+    const desc = plain(p.description);
+    if (desc) {
+      const d = document.createElement('div');
+      d.className = 'small mt-1';
+      d.style.whiteSpace = 'pre-line';
+      d.textContent = desc;
+      box.appendChild(d);
+    }
+    if (ll) {
+      if (state.me) {
+        const dd = document.createElement('div');
+        dd.className = 'small mt-1';
+        dd.append('ห่างจากคุณ ');
+        const b = document.createElement('span'); b.className = 'dist';
+        b.textContent = fmtDist(distM(state.me.lat, state.me.lng, ll[0], ll[1]));
+        dd.append(b, ' (เส้นตรง)');
+        box.appendChild(dd);
+      }
+      const nb = navLink(ll[0], ll[1], p.name);
+      nb.classList.add('mt-2');
+      box.appendChild(nb);
+    }
+    if (p.photoCount > 0) {
+      const row = document.createElement('div');
+      row.className = 'pop-photos';
+      box.appendChild(row);
+      // รูปไม่ได้มากับรายการจุด (หนักเกินไป) — โหลดเฉพาะจุดที่ผู้ใช้กดดู
+      fetch('/api/point-photos?id=' + encodeURIComponent(p.id))
+        .then((r) => (r.ok ? r.json() : { images: [] }))
+        .then(({ images }) => {
+          (images || []).slice(0, 3).forEach((src) => {
+            const a = document.createElement('a');
+            a.href = src; a.target = '_blank'; a.rel = 'noopener noreferrer';
+            const im = document.createElement('img');
+            im.src = src; im.loading = 'lazy'; im.alt = 'รูปจุดบริการ';
+            im.referrerPolicy = 'no-referrer';
+            im.addEventListener('error', () => a.remove()); // โหลดไม่ได้ก็ซ่อน ไม่ให้เป็นรูปแตก
+            im.addEventListener('load', () => onChange && onChange());
+            a.appendChild(im);
+            row.appendChild(a);
+          });
+          if ((images || []).length > 3) {
+            const more = document.createElement('div');
+            more.className = 'small text-muted';
+            more.textContent = `และอีก ${images.length - 3} รูป`;
+            box.appendChild(more);
+          }
+          onChange && onChange();
+        })
+        .catch(() => row.remove());
+    }
+    return box;
+  }
+
+  function render() {
+    markerGroup.clearLayers();
+    state.markers.clear();
+    const list = $('list');
+    list.innerHTML = '';
+    let shown = state.features.filter(matches);
+    let nearest = null;
+    if (state.me) {
+      shown.forEach((f) => { f._d = distM(state.me.lat, state.me.lng, f.geometry.coordinates[1], f.geometry.coordinates[0]); });
+      shown.sort((a, b) => a._d - b._d);
+      nearest = shown.length ? shown[0]._d : null;
+      if (state.radius > 0) shown = shown.filter((f) => f._d <= state.radius);
+    }
+
+    const frag = document.createDocumentFragment();
+    shown.forEach((f) => {
+      const p = f.properties;
+      const [lng, lat] = f.geometry.coordinates;
+      const m = L.circleMarker([lat, lng], {
+        radius: 8, color: '#fff', weight: 2, fillColor: colorOf(p.layer), fillOpacity: .95
+      });
+      m.bindPopup(() => popupEl(p, () => m.getPopup() && m.getPopup().update(), [lat, lng]), { minWidth: 200 });
+      m.addTo(markerGroup);
+      state.markers.set(p.id, m);
+
+      const el = document.createElement('div');
+      el.className = 'item d-flex align-items-center gap-2'; el.setAttribute('role', 'listitem');
+      const info = document.createElement('div');
+      info.className = 'flex-grow-1'; info.style.minWidth = 0;
+      info.innerHTML = `<div class="t">${esc(p.name || 'ไม่ระบุชื่อ')}</div>` +
+        `<div class="s"><span style="color:${colorOf(p.layer)}">●</span> ${esc(shortLabel(p.layer || '—', 40))}` +
+        (state.me ? ` · <span class="dist">${fmtDist(f._d)}</span>` : '') + `</div>`;
+      el.appendChild(info);
+      el.appendChild(navLink(lat, lng, p.name));
+      el.addEventListener('click', () => {
+        map.setView([lat, lng], Math.max(map.getZoom(), 17));
+        m.openPopup();
+        document.querySelectorAll('.item.focus').forEach((x) => x.classList.remove('focus'));
+        el.classList.add('focus');
+      });
+      frag.appendChild(el);
+    });
+    list.appendChild(frag);
+    if (!shown.length) {
+      list.innerHTML = '';
+      const e = document.createElement('div');
+      e.className = 'p-4 text-center text-muted';
+      e.textContent = state.me && nearest != null
+        ? `ไม่มีจุดในรัศมี ${state.radius >= 1000 ? state.radius / 1000 + ' กม.' : state.radius + ' ม.'} — จุดที่ใกล้ที่สุดห่างจากคุณ ${fmtDist(nearest)} ลองเลือกรัศมีที่กว้างขึ้น`
+        : 'ไม่พบจุดที่ตรงกับเงื่อนไข';
+      list.appendChild(e);
+    }
+    updateLocMsg(shown.length, nearest);
+
+    $('nShown').textContent = shown.length.toLocaleString('th-TH');
+    $('nAll').textContent = state.features.length.toLocaleString('th-TH');
+    return shown;
+  }
+
+  // ---------- จุดใกล้ฉัน (ตำแหน่งอยู่ในเบราว์เซอร์เท่านั้น ไม่ส่งไปเซิร์ฟเวอร์) ----------
+  const locBtn = $('locBtn'), heroBtn = $('heroBtn'), hero = $('hero'), heroMsg = $('heroMsg'), radiusSel = $('radius'), locClear = $('locClear'), locMsg = $('locMsg');
+  let locNote = null; // ข้อความผิดพลาดล่าสุด
+  function setMsg(text, kind) {
+    locMsg.hidden = !text; locMsg.textContent = text || '';
+    // แบนเนอร์ใหญ่ยังเห็นอยู่ตอนยังไม่ได้ตำแหน่ง จึงแสดงข้อผิดพลาดตรงนั้นด้วย (แถบข้างบนมือถืออยู่ล่างจอ)
+    const he = !state.me && kind === 'err' ? text : '';
+    heroMsg.hidden = !he; heroMsg.textContent = he;
+    locMsg.className = 'small mb-2' + (kind ? ' ' + kind : '');
+  }
+  function updateLocMsg(n, nearest) {
+    if (locNote) { setMsg(locNote.text, locNote.kind); return; }
+    if (!state.me) { setMsg(''); return; }
+    const r = state.radius > 0 ? ` ในรัศมี ${state.radius >= 1000 ? state.radius / 1000 + ' กม.' : state.radius + ' ม.'}` : '';
+    let t = `พบ ${n.toLocaleString('th-TH')} จุด${r} · ใกล้สุดห่าง ${nearest != null ? fmtDist(nearest) : '–'} (เส้นตรง) · ความแม่นยำตำแหน่ง ±${Math.round(state.me.acc)} ม.`;
+    let kind = '';
+    if (state.me.acc > 500) { t += ' — ตำแหน่งไม่ค่อยแม่นยำ ผลอาจคลาดเคลื่อน'; kind = 'warn'; }
+    setMsg(t, kind);
+  }
+  function drawMe(fit) {
+    state.meLayer.clearLayers();
+    if (!state.me) return;
+    const c = [state.me.lat, state.me.lng];
+    if (state.me.acc <= 1500) L.circle(c, { radius: state.me.acc, color: '#0d6efd', weight: 1, fillOpacity: .08, interactive: false }).addTo(state.meLayer);
+    L.marker(c, { icon: L.divIcon({ className: '', html: '<div class="me-dot" style="width:18px;height:18px"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), interactive: false, keyboard: false, zIndexOffset: 1000 }).addTo(state.meLayer);
+    let bounds;
+    if (state.radius > 0) {
+      const ring = L.circle(c, { radius: state.radius, color: '#1b6b4a', weight: 2, dashArray: '6 6', fillOpacity: .04, interactive: false }).addTo(state.meLayer);
+      bounds = ring.getBounds();
+    } else {
+      const near = state.features.filter(matches).map((f) => [f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+      near.sort((a, b) => distM(c[0], c[1], a[0], a[1]) - distM(c[0], c[1], b[0], b[1]));
+      bounds = L.latLngBounds([c, ...near.slice(0, 10)]);
+    }
+    if (fit) map.fitBounds(bounds.pad(0.1), { maxZoom: 18 });
+  }
+  const HERO_HTML = heroBtn.innerHTML;
+  function setBusy(b) {
+    locBtn.disabled = heroBtn.disabled = b;
+    if (b) {
+      locBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังหาตำแหน่ง…';
+      heroBtn.innerHTML = '<span class="hero-ic"><span class="spinner-border"></span></span><span class="hero-tx"><b>กำลังหาตำแหน่งของคุณ…</b><small>กดอนุญาตเมื่อเบราว์เซอร์ถาม</small></span>';
+    } else {
+      heroBtn.innerHTML = HERO_HTML;
+      locBtn.innerHTML = state.me ? '<i class="bi bi-crosshair me-1"></i>อัปเดตตำแหน่ง' : '<i class="bi bi-geo-alt-fill me-1"></i>จุดใกล้ฉัน';
+    }
+  }
+  function locate() {
+    locNote = null;
+    if (!window.isSecureContext || !navigator.geolocation) {
+      locNote = { text: 'เบราว์เซอร์นี้ใช้ตำแหน่งไม่ได้ (ต้องเปิดผ่าน https และเบราว์เซอร์ต้องรองรับ)', kind: 'err' };
+      return updateLocMsg();
+    }
+    setBusy(true);
+    heroMsg.hidden = true;
+    navigator.geolocation.getCurrentPosition((pos) => {
+      state.me = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy || 0 };
+      radiusSel.disabled = false; locClear.hidden = false;
+      setBusy(false); locBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i>อัปเดตตำแหน่ง'; hero.hidden = true;
+      $('list').scrollTop = 0; $('side').scrollTop = 0;
+      render(); drawMe(true);
+    }, (err) => {
+      setBusy(false);
+      const text = err.code === 1 ? 'ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง — เปิดสิทธิ์ตำแหน่งของเว็บไซต์นี้ในเบราว์เซอร์ แล้วกดใหม่'
+        : err.code === 3 ? 'หาตำแหน่งไม่ทันเวลา ลองกดใหม่ (ถ้าอยู่ในอาคาร ลองเปิด GPS หรือออกที่โล่ง)'
+        : 'หาตำแหน่งไม่ได้ ตรวจว่าเปิด GPS/ตำแหน่งของเครื่องแล้ว';
+      locNote = { text, kind: 'err' };
+      updateLocMsg();
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+  }
+  locBtn.addEventListener('click', locate);
+  heroBtn.addEventListener('click', locate);
+  radiusSel.addEventListener('change', () => { state.radius = Number(radiusSel.value); render(); drawMe(true); });
+  locClear.addEventListener('click', () => {
+    state.me = null; locNote = null; state.meLayer.clearLayers();
+    radiusSel.disabled = true; locClear.hidden = true; hero.hidden = false;
+    locBtn.innerHTML = '<i class="bi bi-geo-alt-fill me-1"></i>จุดใกล้ฉัน';
+    render();
+  });
+
+  function buildChips() {
+    const box = $('chips');
+    box.innerHTML = '';
+    if (state.layers.size < 2) return;
+    state.layers.forEach((info, name) => {
+      const chip = document.createElement('span');
+      chip.className = 'layer-chip' + (state.active.has(name) ? ' active' : '');
+      chip.title = name;
+      chip.innerHTML = `<span class="dot" style="background:${info.color}"></span>${esc(shortLabel(name || 'อื่น ๆ'))} (${info.count})`;
+      chip.addEventListener('click', () => {
+        state.active.has(name) ? state.active.delete(name) : state.active.add(name);
+        chip.classList.toggle('active');
+        render();
+      });
+      box.appendChild(chip);
+    });
+  }
+
+  // ---------- เขตชุมชน ----------
+  // จุดอยู่ในพื้นที่หรือไม่ (ray casting) — รองรับ Polygon/MultiPolygon และรู
+  function inRing(ring, x, y) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function inPolygon(poly, x, y) {
+    if (!inRing(poly[0], x, y)) return false;
+    for (let k = 1; k < poly.length; k++) if (inRing(poly[k], x, y)) return false;
+    return true;
+  }
+  const polysOf = (g) => (g.type === 'Polygon' ? [g.coordinates] : g.coordinates);
+  function bboxOf(g) {
+    let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+    polysOf(g).forEach((poly) => poly[0].forEach(([x, y]) => {
+      if (x < a) a = x; if (x > c) c = x; if (y < b) b = y; if (y > d) d = y;
+    }));
+    return [a, b, c, d];
+  }
+
+  // นับจุดในแต่ละชุมชน (แยกตามชั้นข้อมูล) และบอกแต่ละจุดว่าอยู่ชุมชนไหน
+  function computeZoneStats() {
+    state.zoneStats = new Map();
+    state.zones.forEach((z) => {
+      z._bbox = bboxOf(z.geometry);
+      state.zoneStats.set(z.properties.id, { total: 0, byLayer: new Map() });
+    });
+    state.features.forEach((f) => {
+      const [x, y] = f.geometry.coordinates;
+      const names = [];
+      state.zones.forEach((z) => {
+        const [x0, y0, x1, y1] = z._bbox;
+        if (x < x0 || x > x1 || y < y0 || y > y1) return;
+        if (!polysOf(z.geometry).some((poly) => inPolygon(poly, x, y))) return;
+        const st = state.zoneStats.get(z.properties.id);
+        st.total++;
+        st.byLayer.set(f.properties.layer, (st.byLayer.get(f.properties.layer) || 0) + 1);
+        names.push(z.properties.name);
+      });
+      f.properties.zoneNames = names;
+    });
+  }
+
+  function zonePopupEl(p) {
+    const box = document.createElement('div');
+    box.style.maxWidth = '260px';
+    const title = document.createElement('div');
+    title.className = 'pop-title';
+    title.textContent = p.name || 'ไม่ระบุชื่อ';
+    box.appendChild(title);
+    const tag = document.createElement('span');
+    tag.className = 'pop-layer';
+    tag.style.background = state.districts.get(p.district) || ZONE_PALETTE[0];
+    tag.textContent = p.district || 'เขตชุมชน';
+    box.appendChild(tag);
+
+    const st = state.zoneStats.get(p.id);
+    const info = document.createElement('div');
+    info.className = 'small mt-1';
+    if (st && st.total > 0) {
+      const head = document.createElement('div');
+      head.textContent = `จุดบริการในเขตนี้ ${st.total.toLocaleString('th-TH')} จุด`;
+      info.appendChild(head);
+      st.byLayer.forEach((n, layer) => {
+        const row = document.createElement('div');
+        const dot = document.createElement('span');
+        dot.textContent = '● ';
+        dot.style.color = colorOf(layer);
+        row.appendChild(dot);
+        row.appendChild(document.createTextNode(`${shortLabel(layer || '—', 34)}: ${n}`));
+        row.title = layer;
+        info.appendChild(row);
+      });
+    } else {
+      info.className += ' text-muted';
+      info.textContent = 'ไม่พบจุดบริการที่อยู่ในเขตนี้ตามข้อมูลแผนที่';
+    }
+    box.appendChild(info);
+    const desc = plain(p.description);
+    if (desc) {
+      const d = document.createElement('div');
+      d.className = 'small mt-1';
+      d.style.whiteSpace = 'pre-line';
+      d.textContent = desc;
+      box.appendChild(d);
+    }
+    return box;
+  }
+
+  function buildZones(gj) {
+    state.zones = gj.features;
+    let i = 0;
+    state.zones.forEach((z) => {
+      const d = z.properties.district;
+      if (!state.districts.has(d)) state.districts.set(d, ZONE_PALETTE[i++ % ZONE_PALETTE.length]);
+    });
+    computeZoneStats();
+
+    state.zoneLayer = L.geoJSON({ type: 'FeatureCollection', features: state.zones }, {
+      pane: 'zones',
+      style: (f) => {
+        const c = state.districts.get(f.properties.district);
+        return { color: c, weight: 1.5, opacity: .85, fillColor: c, fillOpacity: .12 };
+      },
+      onEachFeature: (f, layer) => {
+        layer.bindPopup(() => zonePopupEl(f.properties), { minWidth: 200 });
+        layer.bindTooltip(f.properties.name, { sticky: true, direction: 'top', opacity: .95 });
+        layer.on('mouseover', () => layer.setStyle({ fillOpacity: .28, weight: 2.5 }));
+        layer.on('mouseout', () => state.zoneLayer.resetStyle(layer));
+      },
+    });
+    if ($('zoneToggle').checked) state.zoneLayer.addTo(map);
+
+    // แถบสีของแต่ละเขต
+    const legend = $('zoneLegend');
+    legend.innerHTML = '';
+    state.districts.forEach((color, name) => {
+      const n = state.zones.filter((z) => z.properties.district === name).length;
+      const el = document.createElement('span');
+      el.title = name;
+      el.innerHTML = `<span class="zone-swatch" style="background:${color}"></span>${esc(shortLabel(name.replace('เขตพัฒนาชุมชน', 'เขต'), 18))} (${n})`;
+      legend.appendChild(el);
+    });
+    $('zoneTotal').textContent = `(${state.zones.length} ชุมชน)`;
+    $('zoneRow').hidden = false;
+  }
+
+  $('zoneToggle').addEventListener('change', (e) => {
+    if (!state.zoneLayer) return;
+    e.target.checked ? state.zoneLayer.addTo(map) : map.removeLayer(state.zoneLayer);
+  });
+
+  function fitAll() {
+    const pts = state.features.map((f) => [f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+    if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.1));
+  }
+
+  async function load() {
+    try {
+      // เขตชุมชนไม่บังคับ: ถ้าโหลดไม่ได้ ก็แสดงเฉพาะจุดตามเดิม
+      const zonesReq = fetch('/api/zones.geojson').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const res = await fetch('/api/points.geojson');
+      if (!res.ok) throw new Error(res.status);
+      const gj = await res.json();
+      state.features = gj.features;
+      const zonesGj = await zonesReq;
+      if (zonesGj && zonesGj.features && zonesGj.features.length) buildZones(zonesGj);
+      let i = 0;
+      state.features.forEach((f) => {
+        const k = f.properties.layer;
+        if (!state.layers.has(k)) state.layers.set(k, { color: PALETTE[i++ % PALETTE.length], count: 0 });
+        state.layers.get(k).count++;
+      });
+      state.active = new Set(state.layers.keys());
+      buildChips(); render(); fitAll();
+    } catch (e) {
+      $('list').innerHTML = '<div class="p-4 text-center text-danger">โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง</div>';
+    }
+  }
+
+  async function loadStatus() {
+    const badge = $('updated');
+    const fmtT = (iso) => new Date(iso).toLocaleString('th-TH', {
+      timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+    try {
+      const s = await (await fetch('/api/status')).json();
+      if (!s.lastCheckedAt) {
+        badge.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>ยังไม่เคยดึงข้อมูล';
+        return;
+      }
+      // lastCheckedAt = ตรวจแผนที่ล่าสุด (ระบบตรวจทุก 3 ชม.) / lastChangedAt = แผนที่เปลี่ยนล่าสุด
+      badge.classList.toggle('stale', !!s.stale);
+      badge.innerHTML = s.stale
+        ? `<i class="bi bi-exclamation-triangle me-1"></i>ข้อมูลอาจไม่เป็นปัจจุบัน (ตรวจล่าสุด ${fmtT(s.lastCheckedAt)} น.)`
+        : `<i class="bi bi-arrow-repeat me-1"></i>ตรวจล่าสุด ${fmtT(s.lastCheckedAt)} น.`;
+      badge.title = (s.lastChangedAt ? `แผนที่เปลี่ยนล่าสุด ${fmtT(s.lastChangedAt)} น. · ` : '') + 'ระบบตรวจแผนที่อัตโนมัติทุก 3 ชั่วโมง';
+    } catch { badge.textContent = 'ไม่ทราบเวลาอัปเดต'; }
+  }
+
+  let timer;
+  $('q').addEventListener('input', (e) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { state.query = e.target.value.trim().toLowerCase();
+      const shown = render();
+      $('list').scrollTop = 0;
+      // ค้นหาแล้วให้แผนที่เลื่อน/ซูมไปที่ผลลัพธ์ (ไม่ทำตอนล้างช่องค้นหา เพื่อไม่ให้ภาพกระโดด)
+      if (state.query && shown.length) {
+        const ll = shown.map((f) => [f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+        map.fitBounds(L.latLngBounds(ll).pad(0.15), { maxZoom: 17 });
+      }
+    }, 200);
+  });
+
+  // ---------- LINE LIFF (ไม่บังคับ: ถ้าไม่มี LIFF_ID หรือโหลด SDK ไม่ได้ ก็เป็นเว็บธรรมดา) ----------
+  async function initLiff() {
+    try {
+      const { liffId } = await (await fetch('/api/config')).json();
+      if (!liffId) return;
+      await new Promise((ok, no) => {
+        const s = document.createElement('script');
+        s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+        s.onload = ok; s.onerror = no; document.head.appendChild(s);
+      });
+      await window.liff.init({ liffId });
+      liffReady = window.liff.isInClient(); // เปิดข้างใน LINE เท่านั้นที่ต้องใช้ openWindow
+    } catch (err) { console.warn('LIFF ใช้ไม่ได้ ทำงานแบบเว็บธรรมดา', err); }
+  }
+
+  load(); loadStatus(); initLiff();
+})();
+</script>
+</body>
+</html>

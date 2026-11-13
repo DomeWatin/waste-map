@@ -1,0 +1,25 @@
+{
+  "name": "waste-map-surat",
+  "version": "1.0.0",
+  "description": "แผนที่จุดบริการเก็บถังขยะ เทศบาลนครสุราษฎร์ธานี (Google My Maps -> GeoJSON -> Neon PostgreSQL)",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "sync": "node sync.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@tmcw/togeojson": "^6.0.0",
+    "@xmldom/xmldom": "^0.9.0",
+    "compression": "^1.7.4",
+    "express": "^4.21.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "pg-mem": "^3.0.14"
+  }
+}
