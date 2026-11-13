@@ -76,7 +76,9 @@
     #heroMsg { color: #b02a37; margin-top: .4rem; text-align: center; font-weight: 500; }
     @keyframes heroPulse { 0% { box-shadow: 0 0 0 0 rgba(15,61,46,.45); } 70%,100% { box-shadow: 0 0 0 14px rgba(15,61,46,0); } }
     @media (prefers-reduced-motion: reduce) { .hero-ic { animation: none; } }
-    .nav-btn { white-space: nowrap; font-size: .8rem; padding: .2rem .55rem; }
+    .nav-btn { white-space: nowrap; font-size: .8rem; padding: .2rem .55rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    /* หน้าจอสัมผัส: ปุ่มใหญ่ขึ้นให้แตะง่าย (ขั้นต่ำประมาณ 40px) */
+    @media (pointer: coarse) { .nav-btn { min-height: 40px; padding: .4rem .8rem; font-size: .9rem; display: inline-flex; align-items: center; } }
     .dist { font-weight: 600; color: var(--eco-700); }
     #locMsg.err { color: #b02a37; }
     #locMsg.warn { color: #8a5a00; }
@@ -230,6 +232,7 @@
   function popupEl(p, onChange, ll) {
     const box = document.createElement('div');
     box.style.maxWidth = '260px';
+    let nb = null;
     const title = document.createElement('div');
     title.className = 'pop-title';
     title.textContent = p.name || 'ไม่ระบุชื่อ';
@@ -266,13 +269,14 @@
         dd.append(b, ' (เส้นตรง)');
         box.appendChild(dd);
       }
-      const nb = navLink(ll[0], ll[1], p.name);
+      nb = navLink(ll[0], ll[1], p.name);
       nb.classList.add('mt-2');
-      box.appendChild(nb);
     }
     if (p.photoCount > 0) {
       const row = document.createElement('div');
       row.className = 'pop-photos';
+      row.style.minHeight = '90px'; // จองที่ให้รูปไว้ก่อน ป๊อปอัปจะไม่ขยายตอนรูปมา (ปุ่มนำทางไม่ขยับ)
+      const freeIfEmpty = () => { if (!row.children.length) row.remove(); };
       box.appendChild(row);
       // รูปไม่ได้มากับรายการจุด (หนักเกินไป) — โหลดเฉพาะจุดที่ผู้ใช้กดดู
       fetch('/api/point-photos?id=' + encodeURIComponent(p.id))
@@ -284,7 +288,7 @@
             const im = document.createElement('img');
             im.src = src; im.loading = 'lazy'; im.alt = 'รูปจุดบริการ';
             im.referrerPolicy = 'no-referrer';
-            im.addEventListener('error', () => a.remove()); // โหลดไม่ได้ก็ซ่อน ไม่ให้เป็นรูปแตก
+            im.addEventListener('error', () => { a.remove(); freeIfEmpty(); onChange && onChange(); }); // โหลดไม่ได้ก็ซ่อน ไม่ให้เป็นรูปแตก
             im.addEventListener('load', () => onChange && onChange());
             a.appendChild(im);
             row.appendChild(a);
@@ -293,12 +297,16 @@
             const more = document.createElement('div');
             more.className = 'small text-muted';
             more.textContent = `และอีก ${images.length - 3} รูป`;
-            box.appendChild(more);
+            box.insertBefore(more, nb || null);
           }
+          freeIfEmpty();
           onChange && onChange();
         })
-        .catch(() => row.remove());
+        .catch(() => { row.remove(); onChange && onChange(); });
     }
+    // ปุ่มนำทางอยู่ล่างสุดของป๊อปอัป: ป๊อปอัปยึดปลายล่างไว้ที่หมุด เมื่อรูปโหลดเสร็จเนื้อหาจะขยายขึ้นด้านบน
+    // ปุ่มจึงไม่เลื่อนหนีนิ้วระหว่างแตะ
+    if (nb) box.appendChild(nb);
     return box;
   }
 
@@ -323,7 +331,12 @@
       const m = L.circleMarker([lat, lng], {
         radius: 8, color: '#fff', weight: 2, fillColor: colorOf(p.layer), fillOpacity: .95
       });
-      m.bindPopup(() => popupEl(p, () => m.getPopup() && m.getPopup().update(), [lat, lng]), { minWidth: 200 });
+      // Leaflet เรียกฟังก์ชันนี้ใหม่ทุกครั้งที่ popup.update() (เกิดทุกครั้งที่รูปโหลดเสร็จ)
+      // ถ้าสร้าง DOM ใหม่ทุกครั้ง ปุ่มนำทางจะถูกแทนที่ซ้ำ ๆ และรูปถูกขอซ้ำไม่จบ → แตะปุ่มพลาดเป็นบางครั้ง
+      // จึงสร้างครั้งเดียวต่อการเปิด แล้วใช้ตัวเดิมจนกว่าป๊อปอัปจะปิด
+      let popEl = null;
+      m.bindPopup(() => (popEl ||= popupEl(p, () => m.getPopup() && m.getPopup().update(), [lat, lng])), { minWidth: 200 });
+      m.on('popupclose', () => { popEl = null; });
       m.addTo(markerGroup);
       state.markers.set(p.id, m);
 
